@@ -46,12 +46,15 @@ body {
     height: 50px;
     margin-bottom: 5px;
     border-radius: 0px;
-    border: 1px solid black;
-    width: 50%;
-    position: absolute;
-    left: 25%;
+    border: 1px solid #00a550;
+    width: 100%;
     font-size: 20px;
     cursor: pointer;
+    animation-delay: 0.3s;
+}
+
+.shoot_button:hover {
+    background-color: #00a550;
 }
 
 .shoota_container {
@@ -317,12 +320,18 @@ body {
 
 .powerup {
     width: 33.3%;
-    border: 1px solid black;
+    border: 1px solid #00a550;
     cursor: pointer;
     padding: 5px;
     height: 50px;
     border-radius: 0px;
     font-size: 20px;
+    background-color: white;
+    animation-delay: 0.3s;
+}
+
+.powerup:hover {
+    background-color: #00a550;
 }
 
 .LobbyScreenSwitcher {
@@ -362,10 +371,24 @@ body {
     text-align: center;
     border: none;
     float: left;
-    border: 1px solid black;
+    border: 1px solid #00a550;
     cursor: pointer;
     padding: 5px;
     font-size: 20px;
+}
+
+.gameUtilContainer {
+    width: 100%;
+    height: auto;
+    border-top: 1px solid #00a550;
+}
+
+.BackToLobby {
+    animation-delay: 0.3s;
+}
+
+.BackToLobby:hover {
+    background-color: #00a550;
 }
 
 .CreditContainer {

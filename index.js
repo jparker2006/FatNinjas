@@ -295,13 +295,14 @@ class Bullet {
         this.v_accel = [0, 0];
     }
     calcendpoint() {
-        let fdx = document.documentElement.clientWidth * Math.cos(this.ftheta);
-        let fdy = document.documentElement.clientWidth * Math.sin(this.ftheta);
+        let mult = 2000 / document.documentElement.clientWidth; // for if they expand while bullet going
+        let fdx = (document.documentElement.clientWidth * mult) * Math.cos(this.ftheta);
+        let fdy = (document.documentElement.clientWidth * mult) * Math.sin(this.ftheta);
         this.p[0] = this.fx + fdx;
         this.p[1] = this.fy + fdy;
     }
     oscilate() {
-        this.frad = map(Math.sin(this.theta), -1, 1, 0.004, 0.016) * document.documentElement.clientWidth;
+        this.frad = map(Math.cos(this.theta), -1, 1, 0.003, 0.017) * document.documentElement.clientWidth;
         this.theta += 0.06;
     }
 }
@@ -894,7 +895,7 @@ function connect(nID) {
     }
 }
 
-var t_paint_explode = null;
+var bExplosion = false;
 var v_explosions = [], v_droplets = [];
 function explode(x, y, color) {
     let objColor = hexToRgb(color);
@@ -904,25 +905,7 @@ function explode(x, y, color) {
         v_particles[i].color = objColor;
     }
     v_explosions.push(v_particles);
-    if (!t_paint_explode)
-        t_paint_explode = setInterval(paint_explode, 1000/30);
-}
-
-function paint_explode() {
-    let z = 0;
-    for (let x=0; x<v_explosions.length; x++) {
-        for (let y=0; y<v_explosions[x].length; y++) {
-            v_explosions[x][y].move();
-            v_explosions[x][y].display();
-        }
-        if (0 >= v_explosions[x][z++].alpha) {
-            v_explosions.splice(x, 1);
-        }
-    }
-    if (v_explosions.length < 1) {
-        clearInterval(t_paint_explode);
-        t_paint_explode = null;
-    }
+    bExplosion = true;
 }
 
 var t_paint, t_update, t_grow;
@@ -932,6 +915,8 @@ function GameFrame(sName, Color) {
     sPage += "<div style='background-color: #123123;'>"
     sPage += "<canvas id='canvas' style='background-color: #123123;' onmousemove='updateCoords()' onclick='updateCoords()'></canvas>";
     sPage += "</div>"
+
+    sPage += "<div class='gameUtilContainer'>";
 
     sPage += "<div id='shootaCont' class='shoota_container'>";
     sPage += "<button class='shoot_button' onClick='localShot()'>Shoot</button>";
@@ -945,7 +930,9 @@ function GameFrame(sName, Color) {
 
     sPage += "<div class='CreditContainer'>";
     sPage += "<div id='CreditsDisplay' style='cursor: default; padding-top: 9px;' class='CreditsDisplay'>0 Tokens</div>";
-    sPage += "<button class='CreditsDisplay' onClick='BackToLobby()'>Back to Lobby</button>";
+    sPage += "<button class='CreditsDisplay BackToLobby' onClick='BackToLobby()'>Back to Lobby</button>";
+    sPage += "</div>";
+
     sPage += "</div>";
 
 
@@ -967,7 +954,7 @@ function GameFrame(sName, Color) {
         if ("1" == event.key) PowerUp(0);
         else if ("2" == event.key) PowerUp(1);
         else if ("3" == event.key) PowerUp(2);
-        else if (" " == event.key) localShot();
+        else if ("w" == event.key) localShot();
     }
     g_Sounds.PlaySong();
     g_Sounds.PlayRain();
@@ -1108,11 +1095,25 @@ function paint_player_vector() {
     }
     checkCollisions();
 
-
     for (let i=0; i<v_droplets.length; i++) {
         v_droplets[i].descend();
         v_droplets[i].display();
     }
+
+    if (!bExplosion) return;
+
+    let z = 0;
+    for (let x=0; x<v_explosions.length; x++) {
+        for (let y=0; y<v_explosions[x].length; y++) {
+            v_explosions[x][y].move();
+            v_explosions[x][y].display();
+        }
+        if (0 > v_explosions[x][z++].alpha) {
+            v_explosions.splice(x, 1);
+        }
+    }
+    if (v_explosions.length < 1)
+        bExplosion = false;
 }
 
 function BroadcastChat() {
