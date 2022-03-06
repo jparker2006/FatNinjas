@@ -6,11 +6,11 @@ g_objData.nGameID = 0;
 g_objData.credits = 0;
 g_objData.LobbyWindowShowing = "Setup";
 g_objData.state = 0;
+g_objData.economy = {presicion: 1, speed: 1, damage: 1};
 var coords = [0.0, 0.0];
 var player;
 var v_players = [];
 var g_Sounds = null;
-
 
 class Player {
     constructor(fx, fy, frad, nid) { // color
@@ -30,7 +30,6 @@ class Player {
         this.color = "white";
         this.name = "";
         this.invincible = false;
-        this.score = 0;
     }
     move(p) { // [0] == mpx [1] == mpy
         // player movement
@@ -58,7 +57,7 @@ class Player {
 
         // sword movement
         this.sword.update(this.fx, this.fy);
-        this.sword.follow(p[0], p[1]);
+        this.sword.follow(p[0] - 2.5, p[1] - 2.5);
     }
     display() {
         var canvas = document.getElementById("canvas");
@@ -72,6 +71,7 @@ class Player {
         context.moveTo(this.sword.v_a[0], this.sword.v_a[1]);
         context.lineTo(this.sword.v_b[0], this.sword.v_b[1]);
         context.strokeStyle = this.color;
+        context.lineWidth = 5;
         context.stroke();
         context.font = "12px sans-serif";
         context.fillText(this.name, this.fx - (this.name.length * 3), this.fy - (1.2 * this.frad));
@@ -130,6 +130,85 @@ class Sword {
         this.calcb();
         this.v_a[0] = x;
         this.v_a[1] = y;
+    }
+}
+
+class Particle {
+    constructor(fx, fy) {
+        this.fx = fx;
+        this.fy = fy;
+        this.v_acc = [0, 0];
+        this.theta = getRandomInt(0, 150) * Math.PI * 2;
+        this.multiple = [getRandomInt(40, 80) / 100, getRandomInt(40, 80) / 100];
+        this.v_vel = [Math.sin(this.theta) * this.multiple[0], Math.cos(this.theta) * this.multiple[1]];
+        this.force = [getRandomInt(-80, 80) / 100, getRandomInt(-80, 80) / 100];
+        this.alpha = 1.0;
+        this.color = {};
+    }
+    move() {
+        this.applyForce();
+        this.updatePosition();
+        this.alpha -= 0.02;
+    }
+    applyForce() {
+        this.v_acc[0] += this.force[0];
+        this.v_acc[1] += this.force[1];
+    }
+    updatePosition() {
+        this.v_vel[0] *= this.multiple[0];
+        this.v_vel[1] *= this.multiple[1];
+        this.fx += this.v_vel[0];
+        this.fy += this.v_vel[1];
+        this.v_vel[0] += this.v_acc[0];
+        this.v_vel[1] += this.v_acc[1];
+        this.v_acc = [0, 0];
+    }
+    display() {
+        let canvas = document.getElementById('canvas');
+        var context = canvas.getContext("2d");
+        context.beginPath();
+        context.arc(this.fx, this.fy, 3, 0, 2 * Math.PI);
+        context.fillStyle = "rgba(" + this.color.r + ", " + this.color.g + ", " + this.color.b + ", " + this.alpha + ")";
+        context.fill();
+        context.closePath();
+    }
+}
+
+class Rain {
+    constructor() {
+        this.fx = getRandomInt(0, canvas.width);
+        this.fy = getRandomInt(-700, -200);
+        this.fz = getRandomInt(0, 20);
+        this.flen = map(this.fz, 5, 35, 10, 20);
+        this.fySpeed = map(this.fz, 5, 35, 1, 9);
+    }
+    build() {
+        let canvas = document.getElementById('canvas');
+        this.fx = getRandomInt(0, canvas.width);
+        this.fy = getRandomInt(-700, -200);
+        this.fz = getRandomInt(0, 20);
+        this.flen = map(this.fz, 5, 35, 10, 20);
+        this.fySpeed = map(this.fz, 5, 35, 1, 9);
+    }
+    descend() {
+        this.fy += this.fySpeed;
+        this.fySpeed += map(this.fz, 5, 35, 0.04, 0.1); // y grav
+
+        if (this.fy > canvas.height) // height
+            this.build();
+    }
+    calcWidth() {
+        return map(this.fz, 0, 20, 0.5, 2);
+    }
+    display() {
+        var canvas = document.getElementById("canvas");
+        var context = canvas.getContext("2d");
+        context.beginPath();
+        context.moveTo(this.fx, this.fy);
+        context.lineTo(this.fx, this.fy + this.flen);
+        context.strokeStyle = "orange";
+        context.lineWidth = this.calcWidth();
+        context.stroke();
     }
 }
 
@@ -203,12 +282,24 @@ function BroadcastData() {
     sendMessage(jsonData);
 }
 
+function hexToRgb(hex) {
+    let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
 function BroadcastDeath() {
     let objData = {};
     objData.Type = "Jake";
     objData.GameID = g_objData.nGameID;
     objData.Message = "BCast2Game";
     objData.Event = "Death";
+    objData.fx = player.fx;
+    objData.fy = player.fy;
+    objData.color = g_objData.PlayerColor;
     objData.ID = g_objData.nID;
     let jsonData = JSON.stringify(objData);
     sendMessage(jsonData);
@@ -274,10 +365,20 @@ function LobbyFrame() {
     sPage += "<div id='Toast' class='Toast'</div>";
 
     document.getElementById("Main").innerHTML = sPage;
-    document.getElementById('chat_button').innerHTML = "<img id='chat_botton_img' class='chat_botton_img' src='img/PaperAirplane.png'/>";
+    document.getElementById('chat_button').innerHTML = "<img id='chat_button_img' class='chat_button_img' src='img/PaperAirplane.png'/>";
     pullGames();
     LoadLobbyData();
     g_objData.state = 0;
+}
+
+function OnBlurGameName() {
+    if (768 > document.documentElement.clientWidth)
+        document.getElementById('LobbyScreenSwitcher').style.display = 'block';
+}
+
+function OnFocusGameName() {
+    if (768 > document.documentElement.clientWidth)
+        document.getElementById('LobbyScreenSwitcher').style.display = 'none';
 }
 
 function ShowChat() {
@@ -538,6 +639,7 @@ function initWebSocket() {
                                 break;
                             }
                         }
+                        explode(objData.fx, objData.fy, objData.color);
                     }
                     else if ("Chat" == objData.Event) {
                         if (objData.Chat.length > 144)
@@ -612,6 +714,37 @@ function connect(nID) {
     }
 }
 
+var t_paint_explode = null;
+var v_explosions = [], v_droplets = [];
+function explode(x, y, color) {
+    let objColor = hexToRgb(color);
+    let v_particles = [];
+    for (let i=0; i<250; i++) {
+        v_particles.push(new Particle(x, y));
+        v_particles[i].color = objColor;
+    }
+    v_explosions.push(v_particles);
+    if (!t_paint_explode)
+        t_paint_explode = setInterval(paint_explode, 1000/120);
+}
+
+function paint_explode() {
+    let z = 0;
+    for (let x=0; x<v_explosions.length; x++) {
+        for (let y=0; y<v_explosions[x].length; y++) {
+            v_explosions[x][y].move();
+            v_explosions[x][y].display();
+        }
+        if (0 >= v_explosions[x][z++].alpha) {
+            v_explosions.splice(x, 1);
+        }
+    }
+    if (v_explosions.length < 1) {
+        clearInterval(t_paint_explode);
+        t_paint_explode = null;
+    }
+}
+
 var t_paint, t_update, t_grow;
 function GameFrame(sName, Color) {
     g_objData.Chat = document.getElementById('chats').innerHTML;
@@ -621,10 +754,14 @@ function GameFrame(sName, Color) {
     sPage += "</div>"
 
     sPage += "<div>";
-    sPage += "<button class='powerup' onClick='PowerUp(0)'>Precision</button>";
-    sPage += "<button class='powerup' onClick='PowerUp(1)'>Speed</button>";
-    sPage += "<button class='powerup' onClick='PowerUp(2)'>Damage</button>";
+    sPage += "<button id='pwrPrecision' class='powerup' onClick='PowerUp(0)'>Precision :: 1</button>";
+    sPage += "<button id='pwrSpeed' class='powerup' onClick='PowerUp(1)'>Speed :: 1</button>";
+    sPage += "<button id='pwrDamage' class='powerup' onClick='PowerUp(2)'>Damage :: 1</button>";
     sPage += "<button class='powerup' onClick='BackToLobby()'>Back to Lobby</button>";
+    sPage += "</div>";
+
+    sPage += "<div>";
+    sPage += "<div id='CreditsDisplay' class='CreditsDisplay'>0</div>";
     sPage += "</div>";
 
     document.getElementById("Main").innerHTML = sPage;
@@ -637,35 +774,61 @@ function GameFrame(sName, Color) {
     t_update = setInterval(updatePlayer, 1000/60);
     t_grow = setInterval(growPlayer, 5000);
     g_objData.state = 1;
+    for (let i=0; i<60; i++) {
+        v_droplets.push(new Rain());
+    }
 }
 
 function PowerUp(type) {
     if (0 == type) { // Precision
+        if (g_objData.credits < g_objData.economy.presicion || 10 == g_objData.economy.presicion)
+            return;
+
+        g_objData.credits -= g_objData.economy.presicion;
+        document.getElementById("pwrPrecision").innerHTML = "Precision :: " + ++g_objData.economy.presicion;
         player.fpresisionM += 15;
     }
     else if (1 == type) { // Speed
+        if (g_objData.credits < g_objData.economy.speed || 10 == g_objData.economy.speed)
+            return;
+
+        g_objData.credits -= g_objData.economy.speed;
+        document.getElementById("pwrSpeed").innerHTML = "Speed :: " + ++g_objData.economy.speed;
         player.fspeedM -= 100;
     }
     else if (2 == type) { // Damage (bcast)
+        if (g_objData.credits < g_objData.economy.damage || 10 == g_objData.economy.damage)
+            return;
+
+        g_objData.credits -= g_objData.economy.damage;
+        document.getElementById("pwrDamage").innerHTML = "Damage :: " + ++g_objData.economy.damage;
         player.fsworddamage -= 0.025;
         BroadcastData();
     }
     player.calc_power_ups();
+    document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
 }
 
 function growPlayer() {
+    ++g_objData.credits;
+    document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
     player.grow();
     BroadcastData();
 }
 
 function BackToLobby() {
     v_players = [];
+    v_droplets = [];
     player = null;
+    g_objData.credits = 0;
+    g_objData.economy = {presicion: 1, speed: 1, damage: 1};
     SetGameID(0);
     LobbyFrame();
     clearInterval(t_paint);
     clearInterval(t_update);
     clearInterval(t_grow);
+    document.getElementById('chats').innerHTML = g_objData.Chat;
+    document.getElementById('chats').scroll(0, document.getElementById('chats').scrollHeight);
 }
 
 function updateCoords() {
@@ -683,6 +846,7 @@ function checkCollisions() {
             if (!v_players[i].invincible) {
                 BroadcastCollision(v_players[i].nid);
                 v_players[i].collide(player.fsworddamage);
+                g_Sounds.PlayGrunt();
             }
         }
     }
@@ -718,6 +882,12 @@ function paint_player_vector() {
         v_players[i].display();
     }
     checkCollisions();
+
+
+    for (let i=0; i<v_droplets.length; i++) {
+        v_droplets[i].descend();
+        v_droplets[i].display();
+    }
 }
 
 function BroadcastChat() {
@@ -888,8 +1058,18 @@ class Sounds {
     constructor() {
         this.pop = new Audio("sfx/Pop01.mp3");
         this.pop.load();
+        this.grunts = [];
+        for (let i=1; i<=5; i++) {
+            this.grunts.push(new Audio("sfx/Grunt0"+i+".mp3"));
+        }
+        for (let i=0; i<this.grunts.length; i++) {
+            this.grunts[i].load();
+        }
     }
     PlayPop() {
         this.pop.play();
+    }
+    PlayGrunt() {
+        this.grunts[getRandomInt(0, this.grunts.length)].play();
     }
 }

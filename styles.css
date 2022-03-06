@@ -15,7 +15,6 @@ body {
     scroll-behavior: smooth;
 }
 
-
 .ChatPanel,
 .SetupPanel,
 .GamesPanel {
@@ -57,7 +56,7 @@ body {
 
 .lobby_chat_composer {
     width: 100%;
-    height: 60px;
+    height: 100px;
     margin-left: auto;
     margin-right: auto;
     overflow-y: auto;
@@ -263,11 +262,10 @@ body {
     animation-delay: 0.3s;
     cursor: pointer;
     color: cornflowerblue;
-/*     border-radius: 20px; */
     padding: 2px;
 }
 
-.chat_botton_img {
+.chat_button_img {
     width: 20px;
     margin-bottom: 20px;
 }
@@ -322,10 +320,11 @@ body {
 .LobbySwitcherButtons {
     display: inline-block;
     border: 1px solid;
-    border-color: silver gray gray silver;
-    border-radius: 5px;
+/*     border-color: silver gray gray silver; */
+/*     border-radius: 5px; */
     padding: 4px;
-    box-shadow: 3px 3px 3px silver;
+    color: white;
+/*     box-shadow: 3px 3px 3px silver; */
 }
 
 .LobbySwitcherButtons:hover {
@@ -334,68 +333,13 @@ body {
     color: white;
 }
 
-@media only screen and (max-width: 600px),
-only screen and (max-device-width: 600px) {
-/*Nexus 7*/
-    .lobby_chat_composer {
-        width: 90%;
-    }
-}
-
-@media only screen and (max-width: 428px),
-only screen and (max-device-width: 428px) {
-/*iPhone 12/13 Pro Max*/
-    .lobby_chat_composer {
-        width: 90%;
-    }
-    .chat_button {
-        width: 35px;
-        font-size: 40px;
-    }
-}
-
-/*@media only screen and (min-width: 411px) and (orientation: portrait) */
-@media only screen and (min-width: 412px) and (max-width: 767px) {
-/*OnePlus 9 Pro*/
-    .lobby_main {
-        height: 75vh;
-        width: 100%;
-    }
-    .lobby_chat_composer {
-        width: 90%;
-    }
-    .chat_box {
-        width: calc(80vw - 65px);
-    }
-    .chat_button {
-        width: 35px;
-        font-size: 40px;
-    }
-}
-
-
-@media only screen and (max-width: 390px),
-only screen and (max-device-width: 390px) {
-/*iPhone 12/13 Pro*/
-    .chat_button {
-        width: 35px;
-        font-size: 25px;
-    }
-    .lobby_chat_composer {
-        width: 95%;
-    }
-}
-
-@media only screen and (max-width: 375px),
-only screen and (max-device-width: 375px) {
-/*iPhone 12/13 Mini*/
-    .lobby_chat_composer {
-        width: 90%;
-    }
-    .chat_button {
-        width: 35px;
-        font-size: 25px;
-    }
+.CreditsDisplay {
+    width: 100%;
+    height: auto;
+    background-color: white;
+    color: black;
+    margin-top: 5px;
+    text-align: center;
 }
 
 .RoundedBox {
@@ -680,4 +624,171 @@ only screen and (max-device-width: 375px) {
         -moz-transform-origin: top left;
         transform-origin: top left;
     }
+}
+
+@media only screen and (max-width: 1080px),
+only screen and (max-device-width: 1080px) {
+/*iPad*/
+.LobbyScreenSwitcher {
+    display: none;
+}
+.credits{
+    display: block;
+}
+
+}
+
+@media only screen and (max-width: 768px),
+only screen and (max-device-width: 768px) {
+/*iPad Mini*/
+
+.GamesPanel {
+    display: none;
+}
+.ChatPanel {
+    display: none;
+}
+
+.LobbyScreenSwitcher {
+    display: block;
+}
+.credits{
+    display: none;
+}
+
+.GamesContainer {
+    height: calc(40vh - 100px);
+}
+
+.lobby_chat_composer {
+    display: inline-block;
+    position: absolute;
+    bottom: 25px;
+    left: 50%;
+    transform: translate(-50%);
+    font-size: 15px;
+    color: black;
+    height: auto;
+    width: 700px;
+    padding: 8px;
+    font-weight: 700;
+}
+
+.lobby_chat_container {
+    height: calc(70vh - 100px);
+}
+
+.chat_button {
+    width: 50px;
+/*     height: 45px; */
+}
+
+.chat_botton_img {
+    margin-bottom: -5px;
+}
+
+.ChatPanel,
+.SetupPanel,
+.GamesPanel {
+    width: 100%;
+    -webkit-animation: SlideUpFromBottom 0.3s ease-in-out 0.1s backwards;
+    -moz-animation: SlideUpFromBottom 0.3s ease-in-out 0.1s backwards;
+    animation: SlideUpFromBottom 0.3s ease-in-out 0.1s backwards;
+}
+
+.title_ani {
+    -webkit-animation: SlideInFromRight 0.3s ease-in-out 0.4s backwards;
+    -moz-animation: SlideInFromRight 0.3s ease-in-out 0.4s backwards;
+    animation: SlideInFromRight 0.3s ease-in-out 0.4s backwards;
+}
+
+}
+
+@media only screen and (max-width: 600px),
+only screen and (max-device-width: 600px) {
+/*Nexus 7*/
+
+.lobby_chat_composer {
+    width: 90%;
+}
+
+}
+
+@media only screen and (max-width: 690px),
+only screen and (max-device-width: 690px) {
+
+
+}
+
+@media only screen and (max-width: 428px),
+only screen and (max-device-width: 428px) {
+/*iPhone 12/13 Pro Max*/
+
+.lobby_chat_composer {
+    width: 90%;
+}
+
+.chat_button {
+    width: 35px;
+    font-size: 40px;
+}
+
+/*@media only screen and (min-width: 411px) and (orientation: portrait) */
+@media only screen and (min-width: 412px) and (max-width: 767px) {
+/*OnePlus 9 Pro*/
+.lobby_main {
+    height: 75vh;
+    width: 100%;
+}
+
+.lobby_chat_composer {
+    width: 90%;
+}
+
+.chat_box {
+    width: calc(80vw - 65px);
+}
+
+.chat_button {
+    width: 35px;
+    font-size: 40px;
+}
+
+}
+
+
+@media only screen and (max-width: 390px),
+only screen and (max-device-width: 390px) {
+/*iPhone 12/13 Pro*/
+
+.chat_button {
+    width: 35px;
+    font-size: 25px;
+}
+.lobby_chat_composer {
+    width: 95%;
+}
+
+}
+
+@media only screen and (max-width: 375px),
+only screen and (max-device-width: 375px) {
+/*iPhone 12/13 Mini*/
+
+.lobby_chat_composer {
+    width: 90%;
+}
+
+.chat_button {
+    width: 35px;
+    font-size: 25px;
+}
+
+}
+
+@media only screen and (max-width: 280px),
+only screen and (max-device-width: 280px) {
+
+
+
 }
