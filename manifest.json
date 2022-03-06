@@ -1,0 +1,73 @@
+
+{
+  "short_name": "Jake",
+  "name": "Jake Parker",
+  "description": "You Only Get One",
+  "lang": "en-US",
+  "start_url": "index.html",
+  "scope": "/",
+  "theme_color": "#6495ED",
+  "background_color": "#6495ED",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "scope": "/",
+  "icons": [
+    {
+      "src": "img/One64.png",
+      "type": "image/png",
+      "sizes": "64x64",
+      "purpose": "maskable"
+    },
+    {
+      "src": "img/One128.png",
+      "type": "image/png",
+      "sizes": "128x128",
+      "purpose": "maskable"
+    },
+    {
+      "src": "img/One144.png",
+      "type": "image/png",
+      "sizes": "144x144",
+      "purpose": "any"
+    },
+    {
+      "src": "img/One192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "img/One512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Jake Parker",
+      "short_name": "Jake",
+      "description": "You Only Get One",
+      "url": "/",
+      "icons": [
+        {
+          "src": "img/One192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "img/One-SS01.jpeg",
+      "type": "image/jpg",
+      "sizes": "917x1925"
+    },
+    {
+      "src": "img/One-SS02.jpeg",
+      "type": "image/jpg",
+      "sizes": "1967x793"
+    }
+  ]
+}
+

@@ -66,6 +66,7 @@ class Player {
         // bullet movement
         if (this.bShooting) {
             this.bullet.move();
+            this.bullet.oscilate();
             if (this.bullet.fx > document.documentElement.clientWidth || this.bullet.fx < 0 || this.bullet.fy < 0 || this.bullet.fy > (document.documentElement.clientWidth / 2.5)) {
                 this.bShooting = false;
                 this.bullet = null;
@@ -220,6 +221,9 @@ class Rain {
         this.fz = getRandomInt(0, 20);
         this.flen = map(this.fz, 5, 35, 10, 20);
         this.fySpeed = map(this.fz, 5, 35, 1, 9);
+        this.fxSpeed = 0;
+        this.nCount = 0;
+        this.theta = getRandomInt(-25, 25) / 100;
     }
     build() {
         let canvas = document.getElementById('canvas');
@@ -228,13 +232,18 @@ class Rain {
         this.fz = getRandomInt(0, 20);
         this.flen = map(this.fz, 5, 35, 10, 20);
         this.fySpeed = map(this.fz, 5, 35, 1, 9);
+        this.fxSpeed = 0;
+        this.nCount = 0;
     }
     descend() {
         this.fy += this.fySpeed;
         this.fySpeed += map(this.fz, 5, 35, 0.04, 0.1); // y grav
+        this.fxSpeed = Math.sin(this.nCount);
+        this.fx += this.fxSpeed;
 
         if (this.fy > canvas.height) // height
             this.build();
+        this.nCount += this.theta;
     }
     calcWidth() {
         return map(this.fz, 0, 20, 0.5, 2);
@@ -245,7 +254,7 @@ class Rain {
         context.beginPath();
         context.moveTo(this.fx, this.fy);
         context.lineTo(this.fx, this.fy + this.flen);
-        context.strokeStyle = "orange";
+        context.strokeStyle = "blue";
         context.lineWidth = this.calcWidth();
         context.stroke();
     }
@@ -258,6 +267,7 @@ class Bullet {
         this.ftheta = v_players[i].sword.ftheta;
         this.v_velocity = [0, 0];
         this.v_accel = [0, 0];
+        this.theta = 0;
         this.frad = 0.01 * document.documentElement.clientWidth;
         this.color = "black";
         this.p = [0, 0];
@@ -290,6 +300,10 @@ class Bullet {
         this.p[0] = this.fx + fdx;
         this.p[1] = this.fy + fdy;
     }
+    oscilate() {
+        this.frad = map(Math.sin(this.theta), -1, 1, 0.004, 0.016) * document.documentElement.clientWidth;
+        this.theta += 0.06;
+    }
 }
 
 class Sounds {
@@ -299,12 +313,19 @@ class Sounds {
         this.grunts = [];
         for (let i=1; i<=5; i++) {
             this.grunts.push(new Audio("sfx/Grunt0"+i+".mp3"));
-        }
-        for (let i=0; i<this.grunts.length; i++) {
-            this.grunts[i].load();
+            this.grunts[i-1].load();
         }
         this.shot = new Audio("sfx/Shot.mp3");
         this.shot.load();
+        this.shothit = new Audio("sfx/ShotHit.mp3");
+        this.shothit.load();
+        this.music = [];
+        for (let i=1; i<=3; i++) {
+            this.music.push(new Audio("sfx/MusicBed0"+i+".mp3"));
+            this.music[i-1].load();
+        }
+        this.rain = new Audio("sfx/Rain.mp3");
+        this.rain.load();
     }
     PlayPop() {
         this.pop.play();
@@ -314,6 +335,25 @@ class Sounds {
     }
     PlayShot() {
         this.shot.play();
+    }
+    PlayShotHit() {
+        this.shothit.play();
+    }
+    PlaySong() {
+        let nRand = getRandomInt(0, this.music.length);
+        this.music[nRand].play();
+        this.music[nRand].loop = true;
+    }
+    StopMusic() {
+        this.music[0].pause();
+        this.music[0].currentTime = 0;
+        this.music[1].pause();
+        this.music[1].currentTime = 0;
+        this.music[2].pause();
+        this.music[2].currentTime = 0;
+    }
+    PlayRain() {
+        this.rain.play();
     }
 }
 
@@ -528,6 +568,8 @@ function ClickPlayerModel() {
 
 function editPlayerModel() {
     let color = document.getElementById('playerColor').value;
+    if (color == "#123123")
+        return;
     document.getElementById("player_model").style.backgroundColor = color;
     setCookie("PlayerColor", color, 999);
     g_objData.PlayerColor = color;
@@ -540,8 +582,8 @@ function LoadLobbyData() {
         g_objData.UserName = un;
     }
     else {
-        let aNames = ["Mr. Clean", "Flanders", "Rumplestiltskin", "Piper", "Flintstone",
-        "Griffin", "Cart", "Hulk", "Chewbacca", "Wizard", "Taco"];
+        let aNames = ["Dragon", "Simpson", "Flintstone",
+        "Griffin", "Hulk", "Chewbacca", "Wizard", "Taco"];
         let nRand = getRandomInt(0, aNames.length -1);
         g_objData.UserName = aNames[nRand];
         document.getElementById('username').value = aNames[nRand];
@@ -717,6 +759,7 @@ function initWebSocket() {
                                 v_players[i].fy = objData.y * ((nClientWidth / 2.5) / (objData.sw / 2.5));
                                 if (v_players[i].bShooting) {
                                     v_players[i].bullet.move();
+                                    v_players[i].bullet.oscilate();
                                     if (v_players[i].bullet.fx > document.documentElement.clientWidth || v_players[i].bullet.fx < 0 || v_players[i].bullet.fy < 0 || v_players[i].bullet.fy > (document.documentElement.clientWidth / 2.5)) {
                                         v_players[i].bShooting = false;
                                         v_players[i].bullet = null;
@@ -742,8 +785,11 @@ function initWebSocket() {
                             else if (objData.HitterID == v_players[i].nid)
                                 i_hitter = i;
                         }
-                        if (1 == objData.shot)
+                        if (1 == objData.shot) {
                             v_players[i_got_hit].collide(1 - ((1 - v_players[i_hitter].fsworddamage) * 2));
+                            v_players[i_hitter].bullet = null;
+                            v_players[i_hitter].bShooting = false;
+                        }
                         else
                             v_players[i_got_hit].collide(v_players[i_hitter].fsworddamage);
                         v_players[i_got_hit].knockback();
@@ -887,19 +933,19 @@ function GameFrame(sName, Color) {
     sPage += "<canvas id='canvas' style='background-color: #123123;' onmousemove='updateCoords()' onclick='updateCoords()'></canvas>";
     sPage += "</div>"
 
-    sPage += "<div>";
-    sPage += "<button style='height: auto; width: 100%; margin-bottom: 5px; border-radius: 0px; border: none;' onClick='localShot()'>Shoot</button>";
+    sPage += "<div id='shootaCont' class='shoota_container'>";
+    sPage += "<button class='shoot_button' onClick='localShot()'>Shoot</button>";
     sPage += "</div>";
 
     sPage += "<div>";
-    sPage += "<button id='pwrPrecision' class='powerup' onClick='PowerUp(0)'>Precision :: 1</button>";
-    sPage += "<button id='pwrSpeed' class='powerup' onClick='PowerUp(1)'>Speed :: 1</button>";
-    sPage += "<button id='pwrDamage' class='powerup' onClick='PowerUp(2)'>Damage :: 1</button>";
-    sPage += "<button class='powerup' onClick='BackToLobby()'>Back to Lobby</button>";
+    sPage += "<button id='pwrPrecision' class='powerup' onClick='PowerUp(0)'>Precision: 1</button>";
+    sPage += "<button id='pwrSpeed' class='powerup' onClick='PowerUp(1)'>Speed: 1</button>";
+    sPage += "<button id='pwrDamage' class='powerup' onClick='PowerUp(2)'>Damage: 1</button>";
     sPage += "</div>";
 
-    sPage += "<div>";
-    sPage += "<div id='CreditsDisplay' class='CreditsDisplay'>0</div>";
+    sPage += "<div class='CreditContainer'>";
+    sPage += "<div id='CreditsDisplay' style='cursor: default; padding-top: 9px;' class='CreditsDisplay'>0 Tokens</div>";
+    sPage += "<button class='CreditsDisplay' onClick='BackToLobby()'>Back to Lobby</button>";
     sPage += "</div>";
 
 
@@ -923,6 +969,8 @@ function GameFrame(sName, Color) {
         else if ("3" == event.key) PowerUp(2);
         else if (" " == event.key) localShot();
     }
+    g_Sounds.PlaySong();
+    g_Sounds.PlayRain();
 }
 
 function localShot() {
@@ -936,7 +984,7 @@ function PowerUp(type) {
             return;
 
         g_objData.credits -= g_objData.economy.presicion;
-        document.getElementById("pwrPrecision").innerHTML = "Precision :: " + ++g_objData.economy.presicion;
+        document.getElementById("pwrPrecision").innerHTML = "Precision: " + ++g_objData.economy.presicion;
         player.fpresisionM += 15;
     }
     else if (1 == type) { // Speed
@@ -944,7 +992,7 @@ function PowerUp(type) {
             return;
 
         g_objData.credits -= g_objData.economy.speed;
-        document.getElementById("pwrSpeed").innerHTML = "Speed :: " + ++g_objData.economy.speed;
+        document.getElementById("pwrSpeed").innerHTML = "Speed: " + ++g_objData.economy.speed;
         player.fspeedM -= 100;
     }
     else if (2 == type) { // Damage (bcast)
@@ -952,17 +1000,17 @@ function PowerUp(type) {
             return;
 
         g_objData.credits -= g_objData.economy.damage;
-        document.getElementById("pwrDamage").innerHTML = "Damage :: " + ++g_objData.economy.damage;
+        document.getElementById("pwrDamage").innerHTML = "Damage: " + ++g_objData.economy.damage;
         player.fsworddamage -= 0.025;
         BroadcastData();
     }
     player.calc_power_ups();
-    document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
+    document.getElementById("CreditsDisplay").innerHTML = g_objData.credits + " Tokens";
 }
 
 function growPlayer() {
     ++g_objData.credits;
-    document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
+    document.getElementById("CreditsDisplay").innerHTML = g_objData.credits  + " Tokens";
     if (player.frad >= document.documentElement.clientWidth * 0.065)
         return;
     player.grow();
@@ -975,6 +1023,7 @@ function BackToLobby() {
     player = null;
     g_objData.credits = 0;
     g_objData.economy = {presicion: 1, speed: 1, damage: 1};
+    g_Sounds.StopMusic();
     SetGameID(0);
     LobbyFrame();
     clearInterval(t_paint);
@@ -1002,7 +1051,7 @@ function checkCollisions() {
                 g_Sounds.PlayGrunt();
                 v_players[i].knockback();
                 g_objData.credits++;
-                document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
+                document.getElementById("CreditsDisplay").innerHTML = g_objData.credits + " Tokens";;
             }
         }
     }
@@ -1014,11 +1063,13 @@ function checkCollisions() {
         if (Math.pow(fx - v_players[i].fx, 2) + Math.pow(fy - v_players[i].fy, 2) <= Math.pow(v_players[i].frad, 2)) {
             if (!v_players[i].invincible) {
                 BroadcastCollision(v_players[i].nid, true);
+                v_players[0].bullet = null;
+                v_players[0].bShooting = false;
                 v_players[i].collide(1 - ((1 - v_players[0].fsworddamage) * 2));
-                g_Sounds.PlayGrunt();
+                g_Sounds.PlayShotHit();
                 v_players[i].knockback();
                 g_objData.credits++;
-                document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
+                document.getElementById("CreditsDisplay").innerHTML = g_objData.credits  + " Tokens";;
             }
         }
     }
