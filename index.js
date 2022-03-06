@@ -141,6 +141,7 @@ class Player {
         if (!this.bShooting) {
             this.bullet = new Bullet(this.sword.v_b[0], this.sword.v_b[1], index);
             this.bShooting = true;
+            g_Sounds.PlayShot();
         }
     }
 }
@@ -302,12 +303,17 @@ class Sounds {
         for (let i=0; i<this.grunts.length; i++) {
             this.grunts[i].load();
         }
+        this.shot = new Audio("sfx/Shot.mp3");
+        this.shot.load();
     }
     PlayPop() {
         this.pop.play();
     }
     PlayGrunt() {
         this.grunts[getRandomInt(0, this.grunts.length)].play();
+    }
+    PlayShot() {
+        this.shot.play();
     }
 }
 
@@ -736,7 +742,10 @@ function initWebSocket() {
                             else if (objData.HitterID == v_players[i].nid)
                                 i_hitter = i;
                         }
-                        v_players[i_got_hit].collide(v_players[i_hitter].fsworddamage);
+                        if (1 == objData.shot)
+                            v_players[i_got_hit].collide(1 - ((1 - v_players[i_hitter].fsworddamage) * 2));
+                        else
+                            v_players[i_got_hit].collide(v_players[i_hitter].fsworddamage);
                         v_players[i_got_hit].knockback();
                     }
                     else if ("Data" == objData.Event) {
@@ -850,7 +859,7 @@ function explode(x, y, color) {
     }
     v_explosions.push(v_particles);
     if (!t_paint_explode)
-        t_paint_explode = setInterval(paint_explode, 1000/120);
+        t_paint_explode = setInterval(paint_explode, 1000/30);
 }
 
 function paint_explode() {
@@ -899,13 +908,20 @@ function GameFrame(sName, Color) {
     let canvas = document.getElementById('canvas');
     canvas.width = document.documentElement.clientWidth;
     canvas.height = document.documentElement.clientWidth / 2.5;
-    player = new Player(0, 0, document.documentElement.clientWidth * 0.025, g_objData.nID);
+    player = new Player(getRandomInt(0, document.documentElement.clientWidth), getRandomInt(0, document.documentElement.clientWidth / 2.5), document.documentElement.clientWidth * 0.025, g_objData.nID);
     t_paint = setInterval(paint_player_vector, 1000/60);
     t_update = setInterval(updatePlayer, 1000/60);
     t_grow = setInterval(growPlayer, 5000);
     g_objData.state = 1;
     for (let i=0; i<60; i++) {
         v_droplets.push(new Rain());
+    }
+    window.onkeypress = function(event) {
+        if (g_objData.state != 1) return;
+        if ("1" == event.key) PowerUp(0);
+        else if ("2" == event.key) PowerUp(1);
+        else if ("3" == event.key) PowerUp(2);
+        else if (" " == event.key) localShot();
     }
 }
 
@@ -916,7 +932,7 @@ function localShot() {
 
 function PowerUp(type) {
     if (0 == type) { // Precision
-        if (g_objData.credits < g_objData.economy.presicion || 10 == g_objData.economy.presicion)
+        if (g_objData.credits < g_objData.economy.presicion || 5 == g_objData.economy.presicion)
             return;
 
         g_objData.credits -= g_objData.economy.presicion;
@@ -924,7 +940,7 @@ function PowerUp(type) {
         player.fpresisionM += 15;
     }
     else if (1 == type) { // Speed
-        if (g_objData.credits < g_objData.economy.speed || 10 == g_objData.economy.speed)
+        if (g_objData.credits < g_objData.economy.speed || 5 == g_objData.economy.speed)
             return;
 
         g_objData.credits -= g_objData.economy.speed;
@@ -932,7 +948,7 @@ function PowerUp(type) {
         player.fspeedM -= 100;
     }
     else if (2 == type) { // Damage (bcast)
-        if (g_objData.credits < g_objData.economy.damage || 10 == g_objData.economy.damage)
+        if (g_objData.credits < g_objData.economy.damage || 5 == g_objData.economy.damage)
             return;
 
         g_objData.credits -= g_objData.economy.damage;
@@ -947,6 +963,8 @@ function PowerUp(type) {
 function growPlayer() {
     ++g_objData.credits;
     document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
+    if (player.frad >= document.documentElement.clientWidth * 0.065)
+        return;
     player.grow();
     BroadcastData();
 }
@@ -983,12 +1001,30 @@ function checkCollisions() {
                 v_players[i].collide(player.fsworddamage);
                 g_Sounds.PlayGrunt();
                 v_players[i].knockback();
+                g_objData.credits++;
+                document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
+            }
+        }
+    }
+    if (!v_players[0].bShooting)
+        return;
+    fx = v_players[0].bullet.fx;
+    fy = v_players[0].bullet.fy;
+    for (let i=0; i<v_players.length; i++) {
+        if (Math.pow(fx - v_players[i].fx, 2) + Math.pow(fy - v_players[i].fy, 2) <= Math.pow(v_players[i].frad, 2)) {
+            if (!v_players[i].invincible) {
+                BroadcastCollision(v_players[i].nid, true);
+                v_players[i].collide(1 - ((1 - v_players[0].fsworddamage) * 2));
+                g_Sounds.PlayGrunt();
+                v_players[i].knockback();
+                g_objData.credits++;
+                document.getElementById("CreditsDisplay").innerHTML = g_objData.credits;
             }
         }
     }
 }
 
-function BroadcastCollision(nid) {
+function BroadcastCollision(nid, bgun = false) {
     let objData = {};
     objData.Type = "Jake";
     objData.GameID = g_objData.nGameID;
@@ -996,6 +1032,8 @@ function BroadcastCollision(nid) {
     objData.Event = "Collision";
     objData.HitterID = g_objData.nID;
     objData.GotHitID = nid;
+    if (bgun)
+        objData.shot = 1;
     let jsonData = JSON.stringify(objData);
     sendMessage(jsonData);
 }
@@ -1123,7 +1161,7 @@ function SetGameID(nGameID) {
 }
 
 var hidden, visibilityChange;
-VisiblitySetup();none
+VisiblitySetup();
 
 function VisiblitySetup() {
     if (typeof document.hidden !== "undefined") { // Opera 12.10 and Firefox 18 and later support

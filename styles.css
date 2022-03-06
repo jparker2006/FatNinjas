@@ -1,7 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400&display=swap');
 
-/* #00a550 */
-
 body {
     background-color: #123123;
     margin: 0;
@@ -154,7 +152,7 @@ body {
     border: 2px solid cornflowerblue;
     margin-right: 5px;
     padding: 5px;
-/*     border-radius: 20px; */
+    border-radius: 7px;
 }
 
 .chat_box:focus {
@@ -169,7 +167,7 @@ body {
     margin-right: auto;
     margin-left: auto;
     padding: 5px;
-/*     border-radius: 20px; */
+    border-radius: 7px;
     text-align: center;
 }
 
@@ -223,7 +221,7 @@ body {
     margin-left: 5px;
     margin-right: 5px;
     margin-top: 5px;
-/*     border-radius: 20px; */
+    border-radius: 7px;
     background-color: white;
     animation-delay: 0.3s;
     cursor: pointer;
@@ -239,7 +237,7 @@ body {
     margin-left: 5px;
     margin-right: 5px;
     margin-top: 5px;
-/*     border-radius: 20px; */
+    border-radius: 7px;
     background-color: white;
     text-align: center;
 }
@@ -264,6 +262,7 @@ body {
     cursor: pointer;
     color: cornflowerblue;
     padding: 2px;
+    border-radius: 7px;
 }
 
 .chat_button_img {
@@ -295,6 +294,7 @@ body {
     font-size: 25px;
     color: black;
     background-color: white;
+    border-radius: 7px;
 }
 
 .powerup {

@@ -55,7 +55,8 @@ function QueryDB ($sSQL) {
     return $Result;
 }
 
-// Create Table Lobby (
+
+// CREATE TABLE Lobby (
 // id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 // gamename VARCHAR(40) NOT NULL UNIQUE,
 // color VARCHAR (20),
