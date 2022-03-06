@@ -30,6 +30,10 @@ class Player {
         this.color = "white";
         this.name = "";
         this.invincible = false;
+        this.image = document.createElement("img");
+        this.image.src = "sprites/ninjaMask.png";
+        this.bShooting = false;
+        this.bullet = null;
     }
     move(p) { // [0] == mpx [1] == mpy
         // player movement
@@ -58,6 +62,15 @@ class Player {
         // sword movement
         this.sword.update(this.fx, this.fy);
         this.sword.follow(p[0] - 2.5, p[1] - 2.5);
+
+        // bullet movement
+        if (this.bShooting) {
+            this.bullet.move();
+            if (this.bullet.fx > document.documentElement.clientWidth || this.bullet.fx < 0 || this.bullet.fy < 0 || this.bullet.fy > (document.documentElement.clientWidth / 2.5)) {
+                this.bShooting = false;
+                this.bullet = null;
+            }
+        }
     }
     display() {
         var canvas = document.getElementById("canvas");
@@ -75,6 +88,15 @@ class Player {
         context.stroke();
         context.font = "12px sans-serif";
         context.fillText(this.name, this.fx - (this.name.length * 3), this.fy - (1.2 * this.frad));
+        context.closePath();
+        context.drawImage(this.image, this.fx - this.frad, this.fy - this.frad / 2, this.frad * 2.02, this.frad);
+        if (this.bShooting) {
+            context.beginPath();
+            context.arc(this.bullet.fx, this.bullet.fy, this.bullet.frad, 0, 2 * Math.PI);
+            context.fillStyle = this.color;
+            context.fill();
+            context.closePath();
+        }
     }
     resize() {
         let sw = document.documentElement.clientWidth;
@@ -85,10 +107,16 @@ class Player {
         this.fpresision = sw / 10;
         this.fspeed = sw / 700;
         this.sw = sw;
+        if (this.bShooting) { // test this
+            this.bullet.fx *= (sw / this.sw);
+            this.bullet.fy *= ((sw / 2.5) / (this.sw / 2.5));
+            this.bullet.frad = (sw / this.sw) * this.bullet.frad;
+            this.bullet.fspeed = document.documentElement.clientWidth / 300;
+        }
     }
     collide(damage) {
         if (g_objData.nID == this.nid) {
-            if (this.frad < document.documentElement.clientWidth * 0.01) {
+            if (this.frad < document.documentElement.clientWidth * 0.0135) {
                 BroadcastDeath();
                 BackToLobby();
             }
@@ -104,6 +132,16 @@ class Player {
     calc_power_ups() {
         this.fpresision = document.documentElement.clientWidth / this.fpresisionM;
         this.fspeed = document.documentElement.clientWidth / this.fspeedM;
+    }
+    knockback() {
+        this.image.src = "sprites/ninjaAngrySprite.png";
+        setTimeout(() => {this.image.src = "sprites/ninjaMask.png";}, 1000);
+    }
+    shootGun(index) {
+        if (!this.bShooting) {
+            this.bullet = new Bullet(this.sword.v_b[0], this.sword.v_b[1], index);
+            this.bShooting = true;
+        }
     }
 }
 
@@ -212,13 +250,74 @@ class Rain {
     }
 }
 
+class Bullet {
+    constructor(fx, fy, i=0) {
+        this.fx = fx;
+        this.fy = fy;
+        this.ftheta = v_players[i].sword.ftheta;
+        this.v_velocity = [0, 0];
+        this.v_accel = [0, 0];
+        this.frad = 0.01 * document.documentElement.clientWidth;
+        this.color = "black";
+        this.p = [0, 0];
+        this.fspeed = document.documentElement.clientWidth / 300;
+        this.calcendpoint();
+    }
+    move() {
+        let force = [(this.p[0] - this.frad * 0.75) - this.fx, (this.p[1] - this.frad * 0.75) - this.fy];
+        let distance = Math.sqrt(Math.pow(force[0], 2) + Math.pow(force[1], 2));
+        let mag = Math.sqrt(Math.pow(force[0], 2)  + Math.pow(force[1], 2));
+        if (0 != mag && 1 != mag) {
+            force[0] = force[0] / mag;
+            force[1] = force[1] / mag;
+        }
+        force[0] *= this.fspeed;
+        force[1] *= this.fspeed;
+        force[0] -= this.v_velocity[0];
+        force[1] -= this.v_velocity[1];
+        this.v_accel[0] += force[0];
+        this.v_accel[1] += force[1];
+        this.v_velocity[0] += this.v_accel[0];
+        this.v_velocity[1] += this.v_accel[1];
+        this.fx += this.v_velocity[0];
+        this.fy += this.v_velocity[1];
+        this.v_accel = [0, 0];
+    }
+    calcendpoint() {
+        let fdx = document.documentElement.clientWidth * Math.cos(this.ftheta);
+        let fdy = document.documentElement.clientWidth * Math.sin(this.ftheta);
+        this.p[0] = this.fx + fdx;
+        this.p[1] = this.fy + fdy;
+    }
+}
+
+class Sounds {
+    constructor() {
+        this.pop = new Audio("sfx/Pop01.mp3");
+        this.pop.load();
+        this.grunts = [];
+        for (let i=1; i<=5; i++) {
+            this.grunts.push(new Audio("sfx/Grunt0"+i+".mp3"));
+        }
+        for (let i=0; i<this.grunts.length; i++) {
+            this.grunts[i].load();
+        }
+    }
+    PlayPop() {
+        this.pop.play();
+    }
+    PlayGrunt() {
+        this.grunts[getRandomInt(0, this.grunts.length)].play();
+    }
+}
+
 onload = () => {
     LobbyFrame();
     initWebSocket();
     window.addEventListener("resize", onWindowReSize);
     setTimeout(function() {
         g_Sounds = new Sounds();
-    }, 500);
+    }, 750);
 }
 
 function onWindowReSize() {
@@ -278,6 +377,17 @@ function BroadcastData() {
     objData.color = g_objData.PlayerColor;
     objData.sw = document.documentElement.clientWidth;
     objData.swordDam = player.fsworddamage;
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function BroadcastShot() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = g_objData.nGameID;
+    objData.Message = "BCast2Game";
+    objData.Event = "Bullet";
+    objData.ID = g_objData.nID;
     let jsonData = JSON.stringify(objData);
     sendMessage(jsonData);
 }
@@ -568,7 +678,6 @@ if (window.location.protocol === 'https:') {
     wsUri = "wss://jakehenryparker.com:57007/wss";
 }
 var wSocket = null;
-
 function initWebSocket() {
     try {
         if (typeof MozWebSocket == 'function')
@@ -600,6 +709,21 @@ function initWebSocket() {
                                 v_players[i].sword.update(v_players[i].fx, v_players[i].fy);
                                 v_players[i].fx = objData.x * (nClientWidth / objData.sw);
                                 v_players[i].fy = objData.y * ((nClientWidth / 2.5) / (objData.sw / 2.5));
+                                if (v_players[i].bShooting) {
+                                    v_players[i].bullet.move();
+                                    if (v_players[i].bullet.fx > document.documentElement.clientWidth || v_players[i].bullet.fx < 0 || v_players[i].bullet.fy < 0 || v_players[i].bullet.fy > (document.documentElement.clientWidth / 2.5)) {
+                                        v_players[i].bShooting = false;
+                                        v_players[i].bullet = null;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    else if ("Bullet" == objData.Event) {
+                        for (let i=0; i<v_players.length; i++) {
+                            if (objData.ID == v_players[i].nid) {
+                                v_players[i].shootGun(i);
                                 break;
                             }
                         }
@@ -613,6 +737,7 @@ function initWebSocket() {
                                 i_hitter = i;
                         }
                         v_players[i_got_hit].collide(v_players[i_hitter].fsworddamage);
+                        v_players[i_got_hit].knockback();
                     }
                     else if ("Data" == objData.Event) {
                         for (let i=0; i<v_players.length; i++) {
@@ -754,6 +879,10 @@ function GameFrame(sName, Color) {
     sPage += "</div>"
 
     sPage += "<div>";
+    sPage += "<button style='height: auto; width: 100%; margin-bottom: 5px; border-radius: 0px; border: none;' onClick='localShot()'>Shoot</button>";
+    sPage += "</div>";
+
+    sPage += "<div>";
     sPage += "<button id='pwrPrecision' class='powerup' onClick='PowerUp(0)'>Precision :: 1</button>";
     sPage += "<button id='pwrSpeed' class='powerup' onClick='PowerUp(1)'>Speed :: 1</button>";
     sPage += "<button id='pwrDamage' class='powerup' onClick='PowerUp(2)'>Damage :: 1</button>";
@@ -763,6 +892,7 @@ function GameFrame(sName, Color) {
     sPage += "<div>";
     sPage += "<div id='CreditsDisplay' class='CreditsDisplay'>0</div>";
     sPage += "</div>";
+
 
     document.getElementById("Main").innerHTML = sPage;
 
@@ -777,6 +907,11 @@ function GameFrame(sName, Color) {
     for (let i=0; i<60; i++) {
         v_droplets.push(new Rain());
     }
+}
+
+function localShot() {
+    BroadcastShot();
+    v_players[0].shootGun();
 }
 
 function PowerUp(type) {
@@ -847,6 +982,7 @@ function checkCollisions() {
                 BroadcastCollision(v_players[i].nid);
                 v_players[i].collide(player.fsworddamage);
                 g_Sounds.PlayGrunt();
+                v_players[i].knockback();
             }
         }
     }
@@ -987,7 +1123,7 @@ function SetGameID(nGameID) {
 }
 
 var hidden, visibilityChange;
-VisiblitySetup();
+VisiblitySetup();none
 
 function VisiblitySetup() {
     if (typeof document.hidden !== "undefined") { // Opera 12.10 and Firefox 18 and later support
@@ -1051,25 +1187,5 @@ function postFileFromServer(url, sData, doneCallback) {
         if (xhr.readyState === 4) {
             doneCallback(xhr.status == 200 ? xhr.responseText : null);
         }
-    }
-}
-
-class Sounds {
-    constructor() {
-        this.pop = new Audio("sfx/Pop01.mp3");
-        this.pop.load();
-        this.grunts = [];
-        for (let i=1; i<=5; i++) {
-            this.grunts.push(new Audio("sfx/Grunt0"+i+".mp3"));
-        }
-        for (let i=0; i<this.grunts.length; i++) {
-            this.grunts[i].load();
-        }
-    }
-    PlayPop() {
-        this.pop.play();
-    }
-    PlayGrunt() {
-        this.grunts[getRandomInt(0, this.grunts.length)].play();
     }
 }
