@@ -34,6 +34,7 @@ class Player {
         this.image.src = "sprites/ninjaMask.png";
         this.bShooting = false;
         this.bullet = null;
+        this.score = 0;
     }
     move(p) { // [0] == mpx [1] == mpy
         // player movement
@@ -813,6 +814,18 @@ function initWebSocket() {
                     else if ("GiveMeYourData" == objData.Event) {
                         BroadcastData();
                     }
+                    else if ("Score" == objData.Event) {
+                        for (let i=0; i<v_players.length; i++) {
+                            if (objData.ID == v_players[i].nid) {
+                                v_players[i].score = objData.score;
+                            }
+                        }
+                        let sPage = "";
+                        for (let i=0; i<v_players.length; i++) {
+                            sPage += "<div class='scoreboardElement'>"+v_players[i].name+": "+v_players[i].score+" Points</div>";
+                        }
+                        document.getElementById("scoreboardContainer").innerHTML = sPage;
+                    }
                     else if ("Death" == objData.Event) {
                         for (let i=0; i<v_players.length; i++) {
                             if (objData.ID == v_players[i].nid) {
@@ -885,6 +898,18 @@ function initWebSocket() {
     }
 }
 
+function BroadcastScore() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = g_objData.nGameID;
+    objData.Message = "BCast2Game";
+    objData.Event = "Score";
+    objData.score = v_players[0].score;
+    objData.ID = g_objData.nID;
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
 function connect(nID) {
     for (let i=0; i<g_objData.objGames.length; i++) {
         if (g_objData.objGames[i].id == nID) {
@@ -931,6 +956,9 @@ function GameFrame(sName, Color) {
     sPage += "<div class='CreditContainer'>";
     sPage += "<div id='CreditsDisplay' style='cursor: default; padding-top: 9px;' class='CreditsDisplay'>0 Tokens</div>";
     sPage += "<button class='CreditsDisplay BackToLobby' onClick='BackToLobby()'>Back to Lobby</button>";
+    sPage += "</div>";
+
+    sPage += "<div id='scoreboardContainer' class='scoreboardContainer'>";
     sPage += "</div>";
 
     sPage += "</div>";
@@ -998,6 +1026,13 @@ function PowerUp(type) {
 function growPlayer() {
     ++g_objData.credits;
     document.getElementById("CreditsDisplay").innerHTML = g_objData.credits  + " Tokens";
+    v_players[0].score++;
+    BroadcastScore();
+    let sPage = "";
+    for (let i=0; i<v_players.length; i++) {
+        sPage += "<div class='scoreboardElement'>"+v_players[i].name+": "+v_players[i].score+" Points</div>";
+    }
+    document.getElementById("scoreboardContainer").innerHTML = sPage;
     if (player.frad >= document.documentElement.clientWidth * 0.065)
         return;
     player.grow();

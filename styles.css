@@ -23,6 +23,23 @@ body {
     padding-top: 5px;
 }
 
+.scoreboardContainer {
+    width: 100%;
+    height: auto;
+    border: 1px solid #00a550;
+    background-color: white;
+    margin-top: 15px;
+}
+
+.scoreboardElement {
+    width: 100%;
+    height: 30px;
+    font-size: 15px;
+    text-align: center;
+    user-select: none;
+    border: 1px solid cornflowerblue;
+}
+
 .title {
     width: 100%;
     height: auto;
@@ -51,6 +68,7 @@ body {
     font-size: 20px;
     cursor: pointer;
     animation-delay: 0.3s;
+    background-color: white;
 }
 
 .shoot_button:hover {
