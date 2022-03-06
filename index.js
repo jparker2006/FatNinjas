@@ -1,0 +1,895 @@
+var g_objData = {};
+g_objData.nID = 0;
+g_objData.UserName = "";
+g_objData.PlayerColor = "blue";
+g_objData.nGameID = 0;
+g_objData.credits = 0;
+g_objData.LobbyWindowShowing = "Setup";
+g_objData.state = 0;
+var coords = [0.0, 0.0];
+var player;
+var v_players = [];
+var g_Sounds = null;
+
+
+class Player {
+    constructor(fx, fy, frad, nid) { // color
+        this.fx = fx;
+        this.fy = fy;
+        this.frad = frad;
+        this.v_velocity = [0, 0];
+        this.v_accel = [0, 0];
+        this.fspeed = document.documentElement.clientWidth / 700;
+        this.fspeedM = 700;
+        this.fpresision = document.documentElement.clientWidth / 10;
+        this.fpresisionM = 10;
+        this.fsworddamage = 0.97;
+        this.sword = new Sword(this.fx, this.fy, this.frad * 1.95);
+        this.nid = nid;
+        this.sw = document.documentElement.clientWidth;
+        this.color = "white";
+        this.name = "";
+        this.invincible = false;
+        this.score = 0;
+    }
+    move(p) { // [0] == mpx [1] == mpy
+        // player movement
+        let force = [(p[0] - this.frad * 0.75) - this.fx, (p[1] - this.frad * 0.75) - this.fy];
+        let distance = Math.sqrt(Math.pow(force[0], 2) + Math.pow(force[1], 2));
+        let fcurrspeed = this.fspeed;
+        if (distance < this.fpresision)
+            fcurrspeed = map(distance, 0, this.fpresision, 0, fcurrspeed);
+        let mag = Math.sqrt(Math.pow(force[0], 2)  + Math.pow(force[1], 2));
+        if (0 != mag && 1 != mag) {
+            force[0] = force[0] / mag;
+            force[1] = force[1] / mag;
+        }
+        force[0] *= fcurrspeed;
+        force[1] *= fcurrspeed;
+        force[0] -= this.v_velocity[0];
+        force[1] -= this.v_velocity[1];
+        this.v_accel[0] += force[0];
+        this.v_accel[1] += force[1];
+        this.v_velocity[0] += this.v_accel[0];
+        this.v_velocity[1] += this.v_accel[1];
+        this.fx += this.v_velocity[0];
+        this.fy += this.v_velocity[1];
+        this.v_accel = [0, 0];
+
+        // sword movement
+        this.sword.update(this.fx, this.fy);
+        this.sword.follow(p[0], p[1]);
+    }
+    display() {
+        var canvas = document.getElementById("canvas");
+        var context = canvas.getContext("2d");
+        context.beginPath();
+        context.arc(this.fx, this.fy, this.frad, 0, 2 * Math.PI);
+        context.fillStyle = this.color;
+        context.fill();
+        context.closePath();
+        context.beginPath();
+        context.moveTo(this.sword.v_a[0], this.sword.v_a[1]);
+        context.lineTo(this.sword.v_b[0], this.sword.v_b[1]);
+        context.strokeStyle = this.color;
+        context.stroke();
+        context.font = "12px sans-serif";
+        context.fillText(this.name, this.fx - (this.name.length * 3), this.fy - (1.2 * this.frad));
+    }
+    resize() {
+        let sw = document.documentElement.clientWidth;
+        this.frad = (sw / this.sw) * this.frad;
+        this.sword.flen = this.frad * 1.95;
+        this.fx *= (sw / this.sw);
+        this.fy *= ((sw / 2.5) / (this.sw / 2.5));
+        this.fpresision = sw / 10;
+        this.fspeed = sw / 700;
+        this.sw = sw;
+    }
+    collide(damage) {
+        if (g_objData.nID == this.nid) {
+            if (this.frad < document.documentElement.clientWidth * 0.01) {
+                BroadcastDeath();
+                BackToLobby();
+            }
+        }
+        this.frad *= damage;
+        this.invincible = true;
+        setTimeout(() => {this.invincible = false;}, 1000);
+    }
+    grow() {
+        this.frad *= 1.025;
+        this.sword.flen = this.frad * 1.95;
+    }
+    calc_power_ups() {
+        this.fpresision = document.documentElement.clientWidth / this.fpresisionM;
+        this.fspeed = document.documentElement.clientWidth / this.fspeedM;
+    }
+}
+
+class Sword {
+    constructor(fx, fy, flen) { // color
+        this.v_a = [fx, fy];
+        this.v_b = [0.0, 0.0];
+        this.flen = flen;
+        this.ftheta = 0.0;
+    }
+    calcb() {
+        let fdx = this.flen * Math.cos(this.ftheta);
+        let fdy = this.flen * Math.sin(this.ftheta);
+        this.v_b[0] = this.v_a[0] + fdx
+        this.v_b[1] = this.v_a[1] + fdy;
+    }
+    follow(tx, ty) {
+        let v_dir = [];
+        v_dir.push(tx - this.v_a[0]);
+        v_dir.push(ty - this.v_a[1]);
+        this.ftheta = Math.atan2(v_dir[1], v_dir[0]);
+    }
+    update(x, y) {
+        this.calcb();
+        this.v_a[0] = x;
+        this.v_a[1] = y;
+    }
+}
+
+onload = () => {
+    LobbyFrame();
+    initWebSocket();
+    window.addEventListener("resize", onWindowReSize);
+    setTimeout(function() {
+        g_Sounds = new Sounds();
+    }, 500);
+}
+
+function onWindowReSize() {
+    if (0 == g_objData.state) { // lobby
+        if (document.documentElement.clientWidth > 768) {
+            document.getElementById('ChatPanel').style.display = 'inline-block';
+            document.getElementById('SetupPanel').style.display = 'inline-block';
+            document.getElementById('GamesPanel').style.display = 'inline-block';
+        }
+        else {
+            document.getElementById('ChatPanel').style.display = 'none';
+            document.getElementById('SetupPanel').style.display = 'none';
+            document.getElementById('GamesPanel').style.display = 'none';
+            if ('Chat' == g_objData.LobbyWindowShowing)
+                document.getElementById('ChatPanel').style.display = 'inline-block';
+            else if ('Setup' == g_objData.LobbyWindowShowing)
+                document.getElementById('SetupPanel').style.display = 'inline-block';
+            else
+                document.getElementById('GamesPanel').style.display = 'inline-block';
+        }
+    }
+    else { // game
+        let canvas = document.getElementById('canvas');
+        canvas.width = document.documentElement.clientWidth;
+        canvas.height = document.documentElement.clientWidth / 2.5;
+        for (let i=0; i<v_players.length; i++) {
+            v_players[i].resize();
+        }
+    }
+}
+
+function BroadcastMovement() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = g_objData.nGameID;
+    objData.Message = "BCast2Game";
+    objData.Event = "Movement";
+    objData.x = player.fx;
+    objData.y = player.fy;
+    objData.mpx = coords[0];
+    objData.mpy = coords[1];
+    objData.ID = g_objData.nID;
+    objData.sw = document.documentElement.clientWidth;
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function BroadcastData() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = g_objData.nGameID;
+    objData.Message = "BCast2Game";
+    objData.Event = "Data";
+    objData.ID = g_objData.nID;
+    objData.frad = player.frad;
+    objData.name = g_objData.UserName;
+    objData.color = g_objData.PlayerColor;
+    objData.sw = document.documentElement.clientWidth;
+    objData.swordDam = player.fsworddamage;
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function BroadcastDeath() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = g_objData.nGameID;
+    objData.Message = "BCast2Game";
+    objData.Event = "Death";
+    objData.ID = g_objData.nID;
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function BroadcastGiveMeYourData() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = g_objData.nGameID;
+    objData.Message = "BCast2Game";
+    objData.Event = "GiveMeYourData";
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function LobbyFrame() {
+    let sPage = "";
+
+    sPage += "<div class='title'>";
+    sPage += "<div class='title_ani' style='font-size: 40px;'>Jakes Game</div>";
+    sPage += "</div>";
+
+    sPage += "<div class='lobby_main'>";
+
+    sPage += "<div class='ChatPanel' id='ChatPanel'>"; // chat
+    sPage += "<div id='chats' class='lobby_chat_container'></div>"; // chat displays
+    sPage += "<div class='lobby_chat_composer' style='height: 100px;'>";
+    sPage += "<input id='chatData' class='chat_box' type='text' placeholder='Chat' maxlength='144' onkeypress='clickEnter(event)'/>";
+    sPage += "<button id='chat_button' class='chat_button' onclick='BroadcastChat()'></button>";
+    sPage += "</div>";
+    sPage += "</div>";
+
+    sPage += "<div class='SetupPanel' id='SetupPanel'>"; // main
+    sPage += "<div class='HelpText'>Enter a user name and pick a color for your player</div>"; // take out?
+    sPage += "<input id='username' class='user_name_box' onfocus='OnFocusGameName()' onblur='OnBlurUserName()' type='text' placeholder='Username' maxlength='15' /><br><br>";
+    sPage += "<div class='player_model_container' onclick='ClickPlayerModel()'>";
+    sPage += "<div class='player_ellipse' id='player_model' tooltip='Color picker'></div>";
+    sPage += "</div>";
+    sPage += "<div class='ColorPickerContainer' style='display: none;'>";
+    sPage += "<input id='playerColor' class='ColorPicker' type='color' value='#ffffff' onChange='editPlayerModel()' tooltip='Color picker'/>";
+    sPage += "</div>";
+
+    sPage += "</div>";
+
+    sPage += "<div class='GamesPanel' id='GamesPanel'>"; // games avail
+    sPage += "<div class='HelpText'>Join a game</div>";
+
+    sPage += "<div id='GamesContainer' class='GamesContainer'></div>";
+
+    sPage += "<div class='HelpText' style='margin-top: 15px;' >Create a new game</div>";
+    sPage += "<input id='gameName' class='play_input' maxlength='20' onfocus='OnFocusGameName()' onblur='OnBlurGameName()' placeholder='Game Name' />";
+    sPage += "<button class='play_button' onclick='newgame()'>Create</button>";
+    sPage += "</div>";
+
+    sPage += "</div>"; // whole main
+
+    sPage += "<div id='LobbyScreenSwitcher' class='LobbyScreenSwitcher'>";
+    sPage += "<div class='LobbySwitcherButtons' onclick='ShowChat()'>Chat</div> ";
+    sPage += "<div class='LobbySwitcherButtons' onclick='ShowSetup()'>Setup</div> ";
+    sPage += "<div class='LobbySwitcherButtons' onclick='ShowGames()'>Games</div>";
+    sPage += "</div>";
+
+    sPage += "<div id='Toast' class='Toast'</div>";
+
+    document.getElementById("Main").innerHTML = sPage;
+    document.getElementById('chat_button').innerHTML = "<img id='chat_botton_img' class='chat_botton_img' src='img/PaperAirplane.png'/>";
+    pullGames();
+    LoadLobbyData();
+    g_objData.state = 0;
+}
+
+function ShowChat() {
+    if (!UsernameCheck())
+        return;
+    g_objData.LobbyWindowShowing = "Chat";
+    document.getElementById('ChatPanel').style.display = 'inline-block';
+    document.getElementById('SetupPanel').style.display = 'none';
+    document.getElementById('GamesPanel').style.display = 'none';
+}
+
+function ShowSetup() {
+    g_objData.LobbyWindowShowing = "Setup";
+    document.getElementById('ChatPanel').style.display = 'none';
+    document.getElementById('SetupPanel').style.display = 'inline-block';
+    document.getElementById('GamesPanel').style.display = 'none';
+}
+
+function ShowGames() {
+    if (!UsernameCheck())
+        return;
+    g_objData.LobbyWindowShowing = "Games";
+    document.getElementById('ChatPanel').style.display = 'none';
+    document.getElementById('SetupPanel').style.display = 'none';
+    document.getElementById('GamesPanel').style.display = 'inline-block';
+}
+
+function ClickPlayerModel() {
+    document.getElementById('playerColor').click();
+}
+
+function editPlayerModel() {
+    let color = document.getElementById('playerColor').value;
+    document.getElementById("player_model").style.backgroundColor = color;
+    setCookie("PlayerColor", color, 999);
+    g_objData.PlayerColor = color;
+}
+
+function LoadLobbyData() {
+    let un = getCookie("Username");
+    if (un) {
+        document.getElementById('username').value = un;
+        g_objData.UserName = un;
+    }
+    else {
+        let aNames = ["Mr. Clean", "Flanders", "Rumplestiltskin", "Piper", "Flintstone",
+        "Griffin", "Cart", "Hulk", "Chewbacca", "Wizard", "Taco"];
+        let nRand = getRandomInt(0, aNames.length -1);
+        g_objData.UserName = aNames[nRand];
+        document.getElementById('username').value = aNames[nRand];
+        setCookie("Username", aNames[nRand], 999);
+    }
+    let PlayerColor = getCookie("PlayerColor");
+    if (PlayerColor) {
+        document.getElementById('playerColor').value = PlayerColor;
+        document.getElementById('player_model').style.background = PlayerColor;
+        g_objData.PlayerColor = PlayerColor;
+    }
+    else { // Starter colors
+        let aColors = ["#5F9EA0", "#008B8B", "#006400", "#8B008B", "#8B0000", "#483D8B", "#2F4F4F",
+                       "#228B22", "#4B0082", "#778899", "#0000CD", "#191970", "#6B8E23", "#6A5ACD"];
+        let nRand = getRandomInt(0, aColors.length -1);
+        g_objData.PlayerColor = aColors[nRand];
+        document.getElementById('playerColor').value = aColors[nRand];
+        document.getElementById('player_model').style.background = aColors[nRand];
+        setCookie("PlayerColor", aColors[nRand], 999);
+    }
+}
+
+function getRandomInt(min, max) {
+	var rval = 0;
+	var range = max - min;
+	var bits_needed = Math.ceil(Math.log2(range));
+	if (bits_needed > 53) {
+		throw new Exception("We cannot generate numbers larger than 53 bits.");
+	}
+	var bytes_needed = Math.ceil(bits_needed / 8);
+	var mask = Math.pow(2, bits_needed) - 1;
+	// 7776 -> (2^13 = 8192) -1 == 8191 or 0x00001111 11111111
+
+	// Create byte array and fill with N random numbers
+	var byteArray = new Uint8Array(bytes_needed);
+	window.crypto.getRandomValues(byteArray);
+	var p = (bytes_needed - 1) * 8;
+	for(var i = 0; i < bytes_needed; i++ ) {
+		rval += byteArray[i] * Math.pow(2, p);
+		p -= 8;
+	}
+	// Use & to apply the mask and reduce the number of recursive lookups
+	rval = rval & mask;
+	if (rval >= range) {
+		// Integer out of acceptable range
+		return getRandomInt(min, max);
+	}
+	// Return an integer that falls within the range
+	return min + rval;
+}
+
+function OnBlurUserName() {
+    if (768 > document.documentElement.clientWidth)
+        document.getElementById('LobbyScreenSwitcher').style.display = 'block';
+    let un = document.getElementById('username').value.trim();
+    g_objData.UserName = un;
+    setCookie("Username", un, 999);
+    g_objData.nID = 0;
+    initWebSocket();
+    SetGameID(0);
+}
+
+function newgame() {
+    if (!UsernameCheck())
+        return;
+    let objGame = {};
+    objGame.name = document.getElementById('gameName').value.trim();
+    if ("" == objGame.name) {
+        Toast("Your game needs a name");
+        return;
+    }
+    objGame.color = g_objData.PlayerColor;
+    let jsonGame = JSON.stringify(objGame);
+    postFileFromServer("main.php", "AddToLobbyTable=" + encodeURIComponent(jsonGame), newGameCallback);
+    function newGameCallback(data) {
+        if (!data) {
+            Toast("Failed to Connect");
+            return;
+        }
+        document.getElementById('gameName').value = "";
+        pullGamesCallback(data);
+        BroadcastGameChange();
+    }
+}
+
+function BroadcastGameChange() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = 0;
+    objData.Message = "BCast2Game";
+    objData.Event = "GameListChange";
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function UsernameCheck() {
+    if (!g_objData.UserName) {
+        Toast("Please fill in a user name.");
+        return false;
+    }
+    else
+        return true;
+}
+
+function pullGames() {
+    postFileFromServer("main.php", "PullLobbyTable=" + encodeURIComponent(1), pullGamesCallback);
+}
+
+function pullGamesCallback(data) {
+    g_objData.objGames = JSON.parse(data);
+    let sPage = "";
+    for (let i=0; i<g_objData.objGames.length; i++) {
+        sPage += "<div class='game_to_join' style='background:"+g_objData.objGames[i].color+";' onClick='CheckGamePlayerCount("+g_objData.objGames[i].id+")'>";
+        sPage += g_objData.objGames[i].name;
+        sPage += "</div>";
+    }
+    document.getElementById('GamesContainer').innerHTML = sPage;
+}
+
+function CheckGamePlayerCount(nGameID) {
+    if (!UsernameCheck())
+        return;
+    for (let i=0; i<g_objData.objGames.length; i++) {
+        if (g_objData.objGames[i].id == nGameID) {
+            let objData = {};
+            objData.Type = "Jake";
+            objData.Message = "SetGameID";
+            objData.Event = "CheckPlayerCount";
+            objData.GameID = parseInt(nGameID);
+            objData.GameListIndex = parseInt(nGameID);
+            objData.GameName = g_objData.objGames[i].name;
+            let jsonData = JSON.stringify(objData);
+            sendMessage(jsonData);
+        }
+    }
+}
+
+var wsUri = "ws://jakehenryparker.com:58007";
+if (window.location.protocol === 'https:') {
+    wsUri = "wss://jakehenryparker.com:57007/wss";
+}
+var wSocket = null;
+
+function initWebSocket() {
+    try {
+        if (typeof MozWebSocket == 'function')
+            WebSocket = MozWebSocket;
+        if (wSocket && wSocket.readyState == 1) // OPEN
+            wSocket.close();
+        wSocket = new WebSocket(wsUri);
+        wSocket.onopen = function (evt) {
+            SendMyID();
+            SetGameID(0);
+            console.log("Connection established.");
+        };
+        wSocket.onclose = function (evt) {
+            console.log("Connection closed");
+        };
+        wSocket.onmessage = function (evt) {
+            let objData = JSON.parse(evt.data);
+            let sType = objData.Type;
+            if ("Jake" == sType) {
+                if ("BCast2Game" == objData.Message) {
+                    if ("Movement" == objData.Event) {
+                        for (let i=0; i<v_players.length; i++) {
+                            if (objData.ID == v_players[i].nid) {
+                                let nClientWidth = document.documentElement.clientWidth;
+                                v_players[i].sword.follow (
+                                    objData.mpx * nClientWidth / objData.sw,
+                                    objData.mpy * ((nClientWidth / 2.5) / (objData.sw / 2.5))
+                                );
+                                v_players[i].sword.update(v_players[i].fx, v_players[i].fy);
+                                v_players[i].fx = objData.x * (nClientWidth / objData.sw);
+                                v_players[i].fy = objData.y * ((nClientWidth / 2.5) / (objData.sw / 2.5));
+                                break;
+                            }
+                        }
+                    }
+                    else if ("Collision" == objData.Event) {
+                        let i_hitter, i_got_hit;
+                        for (let i=0; i<v_players.length; i++) {
+                            if (objData.GotHitID == v_players[i].nid)
+                                i_got_hit = i;
+                            else if (objData.HitterID == v_players[i].nid)
+                                i_hitter = i;
+                        }
+                        v_players[i_got_hit].collide(v_players[i_hitter].fsworddamage);
+                    }
+                    else if ("Data" == objData.Event) {
+                        for (let i=0; i<v_players.length; i++) {
+                            if (objData.ID == v_players[i].nid) {
+                                v_players[i].color = objData.color;
+                                v_players[i].name = objData.name;
+                                let fnormrad = objData.frad * (document.documentElement.clientWidth / objData.sw);
+                                v_players[i].frad = fnormrad;
+                                v_players[i].sword.flen = fnormrad * 1.95;
+                                v_players[i].fspeed = (document.documentElement.clientWidth / 700) * (document.documentElement.clientWidth / objData.sw);
+                                v_players[i].fpresision = (document.documentElement.clientWidth / 10) * (document.documentElement.clientWidth / objData.sw);
+                                v_players[i].fsworddamage = objData.swordDam;
+                                return;
+                            }
+                        }
+                    }
+                    else if ("GiveMeYourData" == objData.Event) {
+                        BroadcastData();
+                    }
+                    else if ("Death" == objData.Event) {
+                        for (let i=0; i<v_players.length; i++) {
+                            if (objData.ID == v_players[i].nid) {
+                                v_players.splice(i, 1);
+                                break;
+                            }
+                        }
+                    }
+                    else if ("Chat" == objData.Event) {
+                        if (objData.Chat.length > 144)
+                            return;
+                        MakeChatBubble(objData.From, objData.Chat, objData.Color);
+                    }
+                    else if ("GameListChange" == objData.Event) {
+                        pullGames();
+                    }
+                }
+                else if ("WhoAmI" == objData.Message && "CheckPlayerCount" == objData.Event) {
+                    let aPlayersIDs = objData.PlayersIDHere.split(',');
+                    if (aPlayersIDs.length < 7) // Let this player in
+                        connect(objData.GameListIndex);
+                    else {
+                        SetGameID(0);  // Set player back to lobby
+                        Toast(objData.GameName + " is full. Please try another game");
+                    }
+                }
+                else if ("WhoAmI" == objData.Message) {
+                    g_objData.nID = objData.ID;
+                    if (0 == g_objData.nGameID)
+                        return;
+                    v_players = [];
+                    player.color = g_objData.PlayerColor;
+                    player.name = g_objData.UserName;
+                    v_players.push(player);
+                    let v_playersIDs = objData.PlayersIDHere.split(",");
+                    for (let i=0; i<v_playersIDs.length; i++) {
+                        let bAlreadyThere = false;
+                        for (let j=0; j<v_players.length; j++) {
+                            if (v_players[j].nid == v_playersIDs[i])
+                                bAlreadyThere = true;
+                        }
+                        if (bAlreadyThere || v_playersIDs[i] == g_objData.nID)
+                            continue;
+
+                        let p = new Player(0, 0, document.documentElement.clientWidth * 0.025, v_playersIDs[i]);
+                        v_players.push(p);
+                    }
+                    BroadcastGiveMeYourData();
+                    BroadcastData();
+                }
+                else if ("PlayerEnteringGame" == objData.Message) {
+                    if (g_objData.nGameID == 0)
+                        return;
+                    v_players.push(new Player(0, 0, document.documentElement.clientWidth * 0.025, objData.ID));
+                }
+                else if ("PlayerExitingGame" == objData.Message) {
+                    for (let i=0; i<v_players.length; i++) {
+                        if (objData.ID == v_players[i].nid) {
+                            v_players.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch (exception) {
+        console.log('ERROR: ' + exception);
+    }
+}
+
+function connect(nID) {
+    for (let i=0; i<g_objData.objGames.length; i++) {
+        if (g_objData.objGames[i].id == nID) {
+            GameFrame(g_objData.objGames[i].name, g_objData.objGames[i].color);
+            SetGameID(nID);
+            break;
+        }
+    }
+}
+
+var t_paint, t_update, t_grow;
+function GameFrame(sName, Color) {
+    g_objData.Chat = document.getElementById('chats').innerHTML;
+    let sPage = "";
+    sPage += "<div style='background-color: #123123;'>"
+    sPage += "<canvas id='canvas' style='background-color: #123123;' onmousemove='updateCoords()' onclick='updateCoords()'></canvas>";
+    sPage += "</div>"
+
+    sPage += "<div>";
+    sPage += "<button class='powerup' onClick='PowerUp(0)'>Precision</button>";
+    sPage += "<button class='powerup' onClick='PowerUp(1)'>Speed</button>";
+    sPage += "<button class='powerup' onClick='PowerUp(2)'>Damage</button>";
+    sPage += "<button class='powerup' onClick='BackToLobby()'>Back to Lobby</button>";
+    sPage += "</div>";
+
+    document.getElementById("Main").innerHTML = sPage;
+
+    let canvas = document.getElementById('canvas');
+    canvas.width = document.documentElement.clientWidth;
+    canvas.height = document.documentElement.clientWidth / 2.5;
+    player = new Player(0, 0, document.documentElement.clientWidth * 0.025, g_objData.nID);
+    t_paint = setInterval(paint_player_vector, 1000/60);
+    t_update = setInterval(updatePlayer, 1000/60);
+    t_grow = setInterval(growPlayer, 5000);
+    g_objData.state = 1;
+}
+
+function PowerUp(type) {
+    if (0 == type) { // Precision
+        player.fpresisionM += 15;
+    }
+    else if (1 == type) { // Speed
+        player.fspeedM -= 100;
+    }
+    else if (2 == type) { // Damage (bcast)
+        player.fsworddamage -= 0.025;
+        BroadcastData();
+    }
+    player.calc_power_ups();
+}
+
+function growPlayer() {
+    player.grow();
+    BroadcastData();
+}
+
+function BackToLobby() {
+    v_players = [];
+    player = null;
+    SetGameID(0);
+    LobbyFrame();
+    clearInterval(t_paint);
+    clearInterval(t_update);
+    clearInterval(t_grow);
+}
+
+function updateCoords() {
+    coords[0] = event.clientX;
+    coords[1] = event.clientY;
+}
+
+function checkCollisions() {
+    if (v_players.length < 1)
+        return;
+    let fx = player.sword.v_b[0];
+    let fy = player.sword.v_b[1];
+    for (let i=1; i<v_players.length; i++) {
+        if (Math.pow(fx - v_players[i].fx, 2) + Math.pow(fy - v_players[i].fy, 2) <= Math.pow(v_players[i].frad, 2)) { // you hit somebody
+            if (!v_players[i].invincible) {
+                BroadcastCollision(v_players[i].nid);
+                v_players[i].collide(player.fsworddamage);
+            }
+        }
+    }
+}
+
+function BroadcastCollision(nid) {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = g_objData.nGameID;
+    objData.Message = "BCast2Game";
+    objData.Event = "Collision";
+    objData.HitterID = g_objData.nID;
+    objData.GotHitID = nid;
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function updatePlayer() {
+    player.move(coords);
+    if (v_players.length > 1)
+        BroadcastMovement();
+}
+
+function map(num, min1, max1, min2, max2) {
+    return min2 + (max2 - min2) * ((num - min1) / (max1 - min1));
+}
+
+function paint_player_vector() {
+    var canvas = document.getElementById("canvas");
+    var context = canvas.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i=0; i<v_players.length; i++) {
+        v_players[i].display();
+    }
+    checkCollisions();
+}
+
+function BroadcastChat() {
+    let sChat = document.getElementById('chatData').value.trim();
+    let sUN = document.getElementById('username').value.trim();
+    if (0 == sChat.length)
+        return;
+    if (0 == sUN.length) {
+        document.getElementById('username').focus();
+        Toast("Username Required To Chat");
+        return;
+    }
+    if ("#Clear" == sChat) {
+        document.getElementById("chats").innerHTML = "";
+        document.getElementById('chatData').value = "";
+        return;
+    }
+    MakeChatBubble("You", sChat);
+
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = 0;
+    objData.Message = "BCast2Game";
+    objData.Event = "Chat";
+    objData.ID = g_objData.nID;
+    objData.From = sUN;
+    objData.Chat = sChat;
+    objData.Color = g_objData.PlayerColor;
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+    document.getElementById('chatData').value = "";
+    document.getElementById('chatData').focus();
+}
+
+function MakeChatBubble(sFrom, sChat, Color="black") {
+    let newText = document.createElement('div');
+    if ("You" == sFrom)
+        newText.innerHTML = "<div class='mychat' style='background-color:"+g_objData.PlayerColor+";'>"+sChat+"</div><br><br>";
+    else {
+        newText.innerHTML = "<div class='otherchat' style='background-color: "+Color+";'><span class='otherchatName'>"+sFrom+"</span><br>"+sChat+"</div><br><br><br>";
+    }
+    document.getElementById("chats").appendChild(newText);
+    document.getElementById('chats').scroll(0, document.getElementById('chats').scrollHeight);
+    g_Sounds.PlayPop();
+}
+
+function stopWebSocket() {
+    if (wSocket)
+        wSocket.close(1000, "Deliberate disconnection");
+}
+
+function close_socket() {
+    if (wSocket.readyState === WebSocket.OPEN)
+        wSocket.close(1000, "Deliberate disconnection");
+}
+
+function CheckConnection() {
+    if (!wSocket)
+        initWebSocket();
+    else if (wSocket.readyState == 3) { // Closed
+        wSocket = null;
+        initWebSocket();
+    }
+}
+
+function sendMessage(jsonData) {
+    if (wSocket != null && 1 == wSocket.readyState) {
+        wSocket.send(jsonData);
+    }
+    else {
+        console.log("ws error");
+        CheckConnection();
+        sendMessage.jsonData = jsonData;
+        setTimeout(function(){wSocket.send(sendMessage.jsonData);}, 1500);
+    }
+}
+
+function SendMyID() {
+    let objData = {};
+    objData.Type = "Jake";
+    objData.GameID = 0;
+    objData.ID = 0;
+    objData.Name = g_objData.UserName ? g_objData.UserName : "Jake Parker";
+    objData.Message = "MyID";
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+function SetGameID(nGameID) {
+    g_objData.nGameID = nGameID;
+    let objData = {};
+    objData.Type = "Jake";
+    objData.Message = "SetGameID";
+    objData.GameID = parseInt(nGameID);
+    let jsonData = JSON.stringify(objData);
+    sendMessage(jsonData);
+}
+
+var hidden, visibilityChange;
+VisiblitySetup();
+
+function VisiblitySetup() {
+    if (typeof document.hidden !== "undefined") { // Opera 12.10 and Firefox 18 and later support
+        hidden = "hidden";
+        visibilityChange = "visibilitychange";
+    } else if (typeof document.msHidden !== "undefined") {
+        hidden = "msHidden";
+        visibilityChange = "msvisibilitychange";
+    } else if (typeof document.webkitHidden !== "undefined") {
+        hidden = "webkitHidden";
+        visibilityChange = "webkitvisibilitychange";
+    }
+    document.addEventListener(visibilityChange, ShowVisibilityChange, false);
+}
+
+function ShowVisibilityChange() {
+    //var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if ('visible' === document.visibilityState) {
+        CheckConnection();
+    }
+}
+
+function Toast(sMess) {
+    if (document.getElementById('Toast')) {
+        document.getElementById('Toast').innerHTML = "<div class='ToastMsg'>"+sMess+"</div>";
+        setTimeout(function(){ document.getElementById('Toast').innerHTML = ''; }, 5000);
+    }
+}
+
+function setCookie(c_name, value, exdays) {
+    var exdate=new Date();
+    exdate.setDate(exdate.getDate() + exdays);
+    var c_value=escape(value) + ((exdays===null) ? '' : '; expires='+exdate.toUTCString());
+    document.cookie=c_name + '=' + c_value;
+}
+
+function getCookie(c_name) {
+  var i,x,y,ARRcookies = document.cookie.split(';');
+  for (i=0;i<ARRcookies.length;i++) {
+    x=ARRcookies[i].substr(0,ARRcookies[i].indexOf('='));
+    y=ARRcookies[i].substr(ARRcookies[i].indexOf('=')+1);
+    x=x.replace(/^\s+|\s+$/g,'');
+    if (x===c_name)
+      return unescape(y);
+  }
+}
+
+function clickEnter(event) {
+    if (13 == event.keyCode)
+        BroadcastChat();
+}
+
+function postFileFromServer(url, sData, doneCallback) {
+    var xhr;
+    xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = handleStateChange;
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.send(sData);
+    function handleStateChange() {
+        if (xhr.readyState === 4) {
+            doneCallback(xhr.status == 200 ? xhr.responseText : null);
+        }
+    }
+}
+
+class Sounds {
+    constructor() {
+        this.pop = new Audio("sfx/Pop01.mp3");
+        this.pop.load();
+    }
+    PlayPop() {
+        this.pop.play();
+    }
+}
