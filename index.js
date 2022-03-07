@@ -224,7 +224,7 @@ class Rain {
         this.fySpeed = map(this.fz, 5, 35, 1, 9);
         this.fxSpeed = 0;
         this.nCount = 0;
-        this.theta = getRandomInt(-25, 25) / 100;
+        this.theta = getRandomInt(-35, 35) / 100;
     }
     build() {
         let canvas = document.getElementById('canvas');
@@ -235,6 +235,7 @@ class Rain {
         this.fySpeed = map(this.fz, 5, 35, 1, 9);
         this.fxSpeed = 0;
         this.nCount = 0;
+        this.theta = getRandomInt(-30, 30) / 100;
     }
     descend() {
         this.fy += this.fySpeed;
@@ -269,7 +270,7 @@ class Bullet {
         this.v_velocity = [0, 0];
         this.v_accel = [0, 0];
         this.theta = 0;
-        this.frad = 0.01 * document.documentElement.clientWidth;
+        this.frad = 0.005 * document.documentElement.clientWidth;
         this.color = "black";
         this.p = [0, 0];
         this.fspeed = document.documentElement.clientWidth / 300;
@@ -303,7 +304,7 @@ class Bullet {
         this.p[1] = this.fy + fdy;
     }
     oscilate() {
-        this.frad = map(Math.cos(this.theta), -1, 1, 0.003, 0.017) * document.documentElement.clientWidth;
+        this.frad = map(Math.sin(this.theta), -1, 1, 0.003, 0.017) * document.documentElement.clientWidth;
         this.theta += 0.06;
     }
 }
@@ -356,6 +357,10 @@ class Sounds {
     }
     PlayRain() {
         this.rain.play();
+    }
+    StopRain() {
+        this.rain.pause();
+        this.rain.currentTime = 0;
     }
 }
 
@@ -477,7 +482,7 @@ function LobbyFrame() {
     let sPage = "";
 
     sPage += "<div class='title'>";
-    sPage += "<div class='title_ani' style='font-size: 40px;'>Jakes Game</div>";
+    sPage += "<div class='title_ani' style='font-size: 35px;'><b>Fat Ninjas</b></div>";
     sPage += "</div>";
 
     sPage += "<div class='lobby_main'>";
@@ -584,8 +589,7 @@ function LoadLobbyData() {
         g_objData.UserName = un;
     }
     else {
-        let aNames = ["Dragon", "Simpson", "Flintstone",
-        "Griffin", "Hulk", "Chewbacca", "Wizard", "Taco"];
+        let aNames = ["Dragon", "Simpson", "Flintstone", "Griffin", "Hulk", "Chewbacca", "Wizard", "Taco"];
         let nRand = getRandomInt(0, aNames.length -1);
         g_objData.UserName = aNames[nRand];
         document.getElementById('username').value = aNames[nRand];
@@ -598,8 +602,7 @@ function LoadLobbyData() {
         g_objData.PlayerColor = PlayerColor;
     }
     else { // Starter colors
-        let aColors = ["#5F9EA0", "#008B8B", "#006400", "#8B008B", "#8B0000", "#483D8B", "#2F4F4F",
-                       "#228B22", "#4B0082", "#778899", "#0000CD", "#191970", "#6B8E23", "#6A5ACD"];
+        let aColors = ["#5F9EA0", "#008B8B", "#006400", "#8B008B", "#8B0000", "#483D8B", "#2F4F4F", "#228B22", "#4B0082", "#778899", "#0000CD", "#191970", "#6B8E23", "#6A5ACD"];
         let nRand = getRandomInt(0, aColors.length -1);
         g_objData.PlayerColor = aColors[nRand];
         document.getElementById('playerColor').value = aColors[nRand];
@@ -1046,6 +1049,7 @@ function BackToLobby() {
     g_objData.credits = 0;
     g_objData.economy = {presicion: 1, speed: 1, damage: 1};
     g_Sounds.StopMusic();
+    g_Sounds.StopRain();
     SetGameID(0);
     LobbyFrame();
     clearInterval(t_paint);

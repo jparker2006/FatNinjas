@@ -26,13 +26,15 @@ body {
 .scoreboardContainer {
     width: 100%;
     height: auto;
-    border: 1px solid #00a550;
     background-color: white;
     margin-top: 15px;
 }
 
 .scoreboardElement {
     width: 100%;
+/*     width: 50%; */
+/*    position: absolute;
+    left: 25%;*/
     height: 30px;
     font-size: 15px;
     text-align: center;

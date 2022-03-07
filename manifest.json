@@ -1,8 +1,8 @@
 
 {
-  "short_name": "Jake",
-  "name": "Jake Parker",
-  "description": "You Only Get One",
+  "short_name": "Fat Ninjas",
+  "name": "The Fat Ninjas",
+  "description": "You Only Get One Fat Ninja... use him wisely!",
   "lang": "en-US",
   "start_url": "index.html",
   "scope": "/",
@@ -47,7 +47,7 @@
     {
       "name": "Jake Parker",
       "short_name": "Jake",
-      "description": "You Only Get One",
+      "description": "You Only Get One Fat Ninja... use him wisely!",
       "url": "/",
       "icons": [
         {
